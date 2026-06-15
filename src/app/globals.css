@@ -10,17 +10,30 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* 業務SaaS向けの落ち着いた配色（控えめに使う） */
+  --color-brand: #2563eb; /* 主役・青 */
+  --color-brand-soft: #eff6ff;
+  --color-ai: #0891b2; /* AI回答・水色 */
+  --color-ai-soft: #ecfeff;
+  --color-success: #16a34a; /* 良好・緑 */
+  --color-success-soft: #f0fdf4;
+  --color-warn: #ea580c; /* 注意・オレンジ */
+  --color-warn-soft: #fff7ed;
+  --color-danger: #dc2626; /* 危険・赤 */
+  --color-danger-soft: #fef2f2;
+  --color-canvas: #f7f8fa; /* 薄いグレー背景 */
+  --color-hairline: #eceef1; /* 控えめな境界線 */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* 白基調で統一（自動ダークモードは使わない）／フォントを統一 */
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* 埋め込みウィジェットのページは背景を透明にする（ホストサイトに溶け込む） */
+body:has(.aops-widget-root) {
+  background: transparent;
 }
