@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/chat/rate-limit";
 import { getClientIp } from "@/lib/chat/origin";
+import { overDifyBudget, addDifyRequest, addDifyTokens } from "@/lib/chat/dify-budget";
 
 // AnswerOps ⇄ Dify 連携（Phase 1）。
 // AnswerOpsのサーバー経由でDifyのチャットAPIを呼ぶ。APIキーはここ（サーバー側）だけで使い、ブラウザには出さない。
@@ -63,6 +64,16 @@ export async function POST(request: Request) {
     );
   }
 
+  // 2.5) 全体ハードキャップ（IP非依存）。IPを変えての総量での課金暴走を止める。
+  const now = Date.now();
+  if (overDifyBudget(now)) {
+    console.error("[dify] 本日の全体上限に到達（DIFY_DAILY_*_CAP）");
+    return NextResponse.json(
+      { error: "本日のご利用が混み合っています。時間をおいて再度お試しください。" },
+      { status: 429, headers: { "Retry-After": "3600" } },
+    );
+  }
+
   // 3) 鍵未設定（運用者向け詳細はログだけに出し、お客様には中立メッセージ）
   if (!DIFY_KEY) {
     console.error("[dify] DIFY_API_KEY が未設定です（.env.local を確認してください）");
@@ -86,7 +97,8 @@ export async function POST(request: Request) {
   // user は信頼できるサーバー側で決める（クライアント任意指定でDify側の制限を回避させない）
   const user = `aops-${ip}`;
 
-  // 5) Dify呼び出し（タイムアウト付き）
+  // 5) Dify呼び出し（タイムアウト付き）。呼ぶ＝課金なので、先に1件計上しておく。
+  addDifyRequest(now);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   let res: Response;
@@ -125,6 +137,10 @@ export async function POST(request: Request) {
     console.error("[dify] 応答のJSON解釈に失敗");
     return NextResponse.json({ error: GENERIC_ERROR }, { status: 502 });
   }
+
+  // 消費トークンを全体カウンタに加算（次回以降の上限判定に反映）
+  const usedTokens = Number(data?.metadata?.usage?.total_tokens ?? 0);
+  if (usedTokens > 0) addDifyTokens(now, usedTokens);
 
   return NextResponse.json({
     answer: data.answer ?? "",

@@ -19,7 +19,9 @@ export default function LoginPage() {
   useEffect(() => {
     if (new URLSearchParams(location.search).get("error") === "auth") {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- URLパラメータ(外部状態)をマウント後に反映する正当な用途
-      setError("確認リンクの有効期限が切れているか、無効です。もう一度ログインしてください。");
+      setError(
+        "確認リンクを処理できませんでした。登録した端末・ブラウザと同じものでリンクを開くか、下のフォームから登録メール・パスワードで直接ログインしてください。",
+      );
     }
   }, []);
 

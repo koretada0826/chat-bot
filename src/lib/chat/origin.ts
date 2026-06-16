@@ -22,8 +22,14 @@ function matchDomain(host: string, domain: string): boolean {
 }
 
 export function getClientIp(request: Request): string {
+  // X-Forwarded-For は「クライアント, …, 直前の信頼プロキシ」の順。
+  // ★ 先頭(最左)はクライアントが自由に詐称できる（毎回ランダムIPを付けてレート制限すり抜け）。
+  //   Render等の信頼プロキシが付与する「最後(最右)」の値が本物のクライアントIPなので、そちらを使う。
   const xff = request.headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0].trim();
+  if (xff) {
+    const parts = xff.split(",").map((s) => s.trim()).filter(Boolean);
+    if (parts.length > 0) return parts[parts.length - 1];
+  }
   return request.headers.get("x-real-ip") ?? "unknown";
 }
 

@@ -7,6 +7,10 @@
 create extension if not exists "pgcrypto";   -- gen_random_uuid() 用
 create extension if not exists "vector";      -- 意味検索（embedding）用 pgvector
 
+-- 後で作るテーブルを参照するヘルパー関数を先に定義するため、本体の存在チェックを後回しにする
+-- （pg_dump も使う定番設定。全statement実行後に整合する）
+set check_function_bodies = off;
+
 -- 更新日時を自動で入れる小さな部品 --------------------------------
 create or replace function set_updated_at()
 returns trigger language plpgsql as $$

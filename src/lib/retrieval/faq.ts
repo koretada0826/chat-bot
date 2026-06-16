@@ -16,14 +16,18 @@ function bigrams(text: string): Set<string> {
   return out;
 }
 
-// 2つの文の「文字の重なり度合い」（0〜1）
+// 2つの文の「文字の重なり度合い」（0〜1）。
+// ★ Jaccard（共通 / 全体）で正規化する。
+//   以前は min(A,B) で割っていたため、短い質問が長いFAQの一部に含まれるだけで
+//   score=1.0 になり（例:「返品」⊂「返品はできますか？」）、意味検索の鍵が無い時に
+//   無関係なFAQを高確信で誤回答していた。Jaccardなら部分一致では満点にならない。
 function bigramOverlap(a: string, b: string): number {
   const A = bigrams(a);
   const B = bigrams(b);
   if (A.size === 0 || B.size === 0) return 0;
   let common = 0;
   for (const g of A) if (B.has(g)) common++;
-  return common / Math.min(A.size, B.size);
+  return common / (A.size + B.size - common);
 }
 
 // 意味検索（pgvectorのRPC match_faqs）
