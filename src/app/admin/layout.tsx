@@ -22,7 +22,7 @@ export default async function AdminLayout({
   const orgName = orgs[0]?.organizations?.name ?? "マイ組織";
 
   return (
-    <div className="flex h-screen bg-neutral-50">
+    <div className="flex h-screen bg-[var(--color-canvas)]">
       <Sidebar orgName={orgName} />
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-5xl px-8 py-8">{children}</div>
