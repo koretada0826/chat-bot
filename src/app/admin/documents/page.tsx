@@ -56,11 +56,11 @@ export default async function DocumentsPage() {
           name="file"
           accept=".pdf,.docx,.csv,.md,.markdown,.txt"
           required
-          className="flex-1 text-sm text-neutral-700 file:mr-3 file:rounded-md file:border-0 file:bg-neutral-900 file:px-3 file:py-1.5 file:text-sm file:text-white"
+          className="flex-1 text-sm text-neutral-700 file:mr-3 file:rounded-md file:border-0 file:bg-[var(--color-brand)] file:px-3 file:py-1.5 file:text-sm file:text-white"
         />
         <button
           type="submit"
-          className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white"
+          className="rounded-md bg-[var(--color-brand)] px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
         >
           アップロード
         </button>
