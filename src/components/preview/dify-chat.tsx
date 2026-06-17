@@ -8,6 +8,8 @@ interface Msg {
   role: "user" | "bot";
   text: string;
   error?: boolean;
+  feedbackId?: string | null; // ダッシュボード記録上のメッセージID（フィードバック用）
+  feedbackGiven?: boolean;
 }
 
 const C = {
@@ -18,7 +20,9 @@ const C = {
   send: "#2b6cb0",
 };
 
-export function DifyChat() {
+// projectKey を渡すと、会話がダッシュボードに記録され、解決/未解決ボタンが出る。
+// 渡さない（見本ページ等）と、記録なしの素のチャットとして動く。
+export function DifyChat({ projectKey }: { projectKey?: string | null } = {}) {
   const [messages, setMessages] = useState<Msg[]>([
     {
       id: "g",
@@ -29,6 +33,7 @@ export function DifyChat() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState("");
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const counter = useRef(0);
   const nextId = () => `m${++counter.current}`;
@@ -47,7 +52,7 @@ export function DifyChat() {
       const res = await fetch("/api/dify/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: q, conversationId }),
+        body: JSON.stringify({ query: q, conversationId, projectKey, sessionId }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -57,9 +62,15 @@ export function DifyChat() {
         ]);
       } else {
         if (data.conversationId) setConversationId(data.conversationId);
+        if (data.sessionId) setSessionId(data.sessionId);
         setMessages((m) => [
           ...m,
-          { id: nextId(), role: "bot", text: data.answer || "（回答が空でした）" },
+          {
+            id: nextId(),
+            role: "bot",
+            text: data.answer || "（回答が空でした）",
+            feedbackId: data.feedbackMessageId ?? null,
+          },
         ]);
       }
     } catch {
@@ -74,6 +85,26 @@ export function DifyChat() {
       ]);
     }
     setLoading(false);
+  }
+
+  // 解決した/解決しない を記録（ダッシュボードの解決率・未解決・改善候補に反映）
+  async function sendFeedback(msg: Msg, rating: "resolved" | "unresolved") {
+    if (!projectKey || !msg.feedbackId || !sessionId) return;
+    setMessages((m) => m.map((x) => (x.id === msg.id ? { ...x, feedbackGiven: true } : x)));
+    try {
+      await fetch("/api/chat/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          project_key: projectKey,
+          session_id: sessionId,
+          message_id: msg.feedbackId,
+          rating,
+        }),
+      });
+    } catch {
+      /* フィードバックの失敗は致命的ではない */
+    }
   }
 
   return (
@@ -134,6 +165,29 @@ export function DifyChat() {
                 </div>
                 {/* 引用（参照元）はお客様向けには非表示。
                     どのFAQで答えたかは、将来「ログ画面（管理者向け）」で確認できるようにする。 */}
+
+                {/* 解決/未解決（projectKey接続時のみ・記録あり） */}
+                {!m.error && projectKey && m.feedbackId && !m.feedbackGiven && (
+                  <div className="mt-1.5 flex gap-3 text-[11px] text-neutral-500">
+                    <button
+                      type="button"
+                      onClick={() => sendFeedback(m, "resolved")}
+                      className="hover:text-emerald-600"
+                    >
+                      解決した
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => sendFeedback(m, "unresolved")}
+                      className="hover:text-red-600"
+                    >
+                      解決しない
+                    </button>
+                  </div>
+                )}
+                {m.feedbackGiven && (
+                  <p className="mt-1.5 text-[11px] text-neutral-400">フィードバックありがとうございます。</p>
+                )}
               </div>
             </div>
           ),

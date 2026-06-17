@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/chat/rate-limit";
 import { getClientIp } from "@/lib/chat/origin";
 import { overDifyBudget, addDifyRequest, addDifyTokens } from "@/lib/chat/dify-budget";
+import { logDifyTurn } from "@/lib/chat/dify-log";
 
 // AnswerOps ⇄ Dify 連携（Phase 1）。
 // AnswerOpsのサーバー経由でDifyのチャットAPIを呼ぶ。APIキーはここ（サーバー側）だけで使い、ブラウザには出さない。
@@ -81,7 +82,7 @@ export async function POST(request: Request) {
   }
 
   // 4) 入力検証
-  let body: { query?: string; conversationId?: string };
+  let body: { query?: string; conversationId?: string; projectKey?: string; sessionId?: string };
   try {
     body = await request.json();
   } catch {
@@ -96,6 +97,7 @@ export async function POST(request: Request) {
   }
   // user は信頼できるサーバー側で決める（クライアント任意指定でDify側の制限を回避させない）
   const user = `aops-${ip}`;
+  const askedAt = Date.now(); // 応答時間の計測用
 
   // 5) Dify呼び出し（タイムアウト付き）。呼ぶ＝課金なので、先に1件計上しておく。
   addDifyRequest(now);
@@ -142,8 +144,28 @@ export async function POST(request: Request) {
   const usedTokens = Number(data?.metadata?.usage?.total_tokens ?? 0);
   if (usedTokens > 0) addDifyTokens(now, usedTokens);
 
+  // 橋渡し：projectKey があれば、この会話をダッシュボード用テーブルに記録する。
+  // 失敗してもチャット応答は止めない（best-effort）。preview等でkey無しなら記録しない。
+  const answerText = String(data.answer ?? "");
+  let logged: { sessionId: string; messageId: string | null } | null = null;
+  if (body.projectKey) {
+    logged = await logDifyTurn({
+      projectKey: body.projectKey,
+      sessionId: body.sessionId ?? null,
+      query,
+      answer: answerText,
+      latencyMs: Date.now() - askedAt,
+      totalTokens: usedTokens,
+      pageUrl: request.headers.get("referer"),
+      userAgent: request.headers.get("user-agent"),
+    });
+  }
+
   return NextResponse.json({
     answer: data.answer ?? "",
+    // ダッシュボード記録用のID（フィードバック送信に使う）
+    sessionId: logged?.sessionId ?? null,
+    feedbackMessageId: logged?.messageId ?? null,
     conversationId: data.conversation_id ?? "",
     messageId: data.message_id ?? "",
   });

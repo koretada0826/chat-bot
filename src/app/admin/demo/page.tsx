@@ -1,7 +1,15 @@
 import { Bot } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { getCurrentProject } from "@/lib/auth/context";
 import { DifyChat } from "@/components/preview/dify-chat";
 
-export default function DemoPage() {
+export default async function DemoPage() {
+  const project = await getCurrentProject();
+  const supabase = await createClient();
+  const { data } = project
+    ? await supabase.from("projects").select("public_key").eq("id", project.id).maybeSingle()
+    : { data: null };
+
   return (
     <div>
       <div className="flex items-center gap-2">
@@ -11,11 +19,12 @@ export default function DemoPage() {
         <h1 className="text-lg font-semibold text-neutral-900">デモチャット</h1>
       </div>
       <p className="mt-1 text-sm text-neutral-500">
-        お客さんが実際に見るチャットと<span className="font-medium text-[var(--color-brand)]">同じ画面</span>です。ここでそのまま試せます。
+        お客さんが実際に見るチャットと<span className="font-medium text-[var(--color-brand)]">同じ画面</span>です。
+        ここで試した会話は<span className="font-medium text-[var(--color-brand)]">ダッシュボードにも記録</span>されます。
       </p>
 
       <div className="mt-6 flex justify-center">
-        <DifyChat />
+        <DifyChat projectKey={data?.public_key} />
       </div>
 
       <p className="mx-auto mt-4 max-w-md text-center text-xs text-neutral-400">
